@@ -53,6 +53,3 @@ AI-powered cybersecurity intelligence platform that extracts entities and relati
 - China
 - Russia
 
-## Authors
-Raj Dhanush
-Amrita Vishwa Vidyapeetham
