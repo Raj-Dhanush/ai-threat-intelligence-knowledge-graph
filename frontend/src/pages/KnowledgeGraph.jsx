@@ -14,7 +14,7 @@ import Navbar from '../components/Navbar';
 import api from '../services/api';
 
 // Hardcoded documentId variable as required by project specification
-const HARDCODED_DOCUMENT_ID = '67cd9be346452243d6837012';
+const HARDCODED_DOCUMENT_ID = '6a9d0c13285653a498ac590e';
 
 // Entity Styling configurations
 const ENTITY_CONFIGS = {
@@ -328,7 +328,7 @@ export default function KnowledgeGraph() {
           <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8' }}>
             Active Document:
           </label>
-          
+
           {documents.length > 0 ? (
             <select
               value={activeDocId}
