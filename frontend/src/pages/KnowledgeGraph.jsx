@@ -126,6 +126,11 @@ export default function KnowledgeGraph() {
   const [error, setError] = useState('');
   const [stats, setStats] = useState({ entityCount: 0, relCount: 0 });
 
+  // AI Summary States
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+
   const nodeTypes = useMemo(() => ({ cyberNode: CyberNode }), []);
 
   // Fetch document list to allow switching reports
@@ -282,6 +287,8 @@ export default function KnowledgeGraph() {
   // Load graph on activeDocId change
   useEffect(() => {
     if (activeDocId) {
+      setAiSummary(null);
+      setAiError('');
       fetchGraphData(activeDocId);
     }
   }, [activeDocId, fetchGraphData]);
@@ -308,8 +315,32 @@ export default function KnowledgeGraph() {
     }
   };
 
+  // Generate AI Threat Intelligence Summary via Gemini
+  const handleGenerateAiSummary = async () => {
+    if (!activeDocId) return;
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const res = await api.post('/ai/summary', {
+        documentId: activeDocId,
+      });
+      setAiSummary(res.data);
+      setTimeout(() => {
+        const el = document.getElementById('ai-summary-card');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } catch (err) {
+      console.error('AI summary error:', err);
+      setAiError(
+        err.response?.data?.message || 'Failed to generate AI summary'
+      );
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
       {/* Control / Toolbar Bar */}
@@ -427,6 +458,30 @@ export default function KnowledgeGraph() {
           >
             ⚡ Run Extraction Pipeline
           </button>
+
+          <button
+            onClick={handleGenerateAiSummary}
+            disabled={aiLoading || !activeDocId}
+            className="cyber-btn-primary"
+            style={{
+              padding: '6px 14px',
+              fontSize: '0.8rem',
+              background: 'linear-gradient(135deg, #9333ea, #4f46e5)',
+              boxShadow: '0 4px 14px rgba(147, 51, 234, 0.35)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            {aiLoading ? (
+              <>
+                <span className="cyber-spinner" />
+                <span>Analyzing Report...</span>
+              </>
+            ) : (
+              <span>✨ Generate AI Summary</span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -455,7 +510,7 @@ export default function KnowledgeGraph() {
       )}
 
       {/* React Flow Container */}
-      <div style={{ flex: 1, width: '100%', height: '100%', position: 'relative', background: '#090d16' }}>
+      <div style={{ height: '620px', width: '100%', position: 'relative', background: '#090d16', borderBottom: '1px solid #1e293b' }}>
         {nodes.length === 0 && !loading && (
           <div style={{
             position: 'absolute',
@@ -523,6 +578,252 @@ export default function KnowledgeGraph() {
             }}
           />
         </ReactFlow>
+      </div>
+
+      {/* AI Summary Section Below Graph */}
+      <div id="ai-summary-card" style={{ padding: '28px 24px 60px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+        {aiLoading && (
+          <div className="cyber-card" style={{
+            textAlign: 'center',
+            padding: '40px 20px',
+            border: '1px solid rgba(168, 85, 247, 0.4)',
+            background: 'rgba(15, 23, 42, 0.9)'
+          }}>
+            <div className="cyber-spinner-large" style={{ marginBottom: '16px' }} />
+            <h4 style={{ color: '#c084fc', fontSize: '1.1rem', marginBottom: '8px' }}>
+              Gemini AI Threat Analysis in Progress...
+            </h4>
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+              Synthesizing extracted report text to evaluate risk levels, actors, malware, and CVE vulnerabilities
+            </p>
+          </div>
+        )}
+
+        {aiError && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            color: '#fca5a5',
+            padding: '14px 18px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <span>⚠️ {aiError}</span>
+            <button
+              onClick={() => setAiError('')}
+              style={{ background: 'none', color: '#fca5a5', fontWeight: 'bold' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {aiSummary && !aiLoading && (
+          <div className="cyber-card" style={{
+            border: '1px solid rgba(168, 85, 247, 0.35)',
+            boxShadow: '0 8px 32px rgba(168, 85, 247, 0.15)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {/* Header with Risk Level Badge */}
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid #1e293b',
+              paddingBottom: '18px',
+              marginBottom: '20px',
+              gap: '16px'
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '1.1rem' }}>✨</span>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    fontFamily: 'var(--font-mono)',
+                    color: '#c084fc',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    fontWeight: 700
+                  }}>
+                    AI Intelligence Assessment
+                  </span>
+                </div>
+                <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                  Executive Intelligence Summary
+                </h3>
+              </div>
+
+              {/* Risk Level Badge */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 600 }}>Risk Level:</span>
+                <span style={{
+                  padding: '4px 14px',
+                  borderRadius: '6px',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  letterSpacing: '0.5px',
+                  backgroundColor:
+                    aiSummary.riskLevel === 'HIGH'
+                      ? 'rgba(239, 68, 68, 0.2)'
+                      : aiSummary.riskLevel === 'MEDIUM'
+                        ? 'rgba(245, 158, 11, 0.2)'
+                        : 'rgba(16, 185, 129, 0.2)',
+                  color:
+                    aiSummary.riskLevel === 'HIGH'
+                      ? '#f87171'
+                      : aiSummary.riskLevel === 'MEDIUM'
+                        ? '#fbbf24'
+                        : '#34d399',
+                  border:
+                    aiSummary.riskLevel === 'HIGH'
+                      ? '1px solid rgba(239, 68, 68, 0.5)'
+                      : aiSummary.riskLevel === 'MEDIUM'
+                        ? '1px solid rgba(245, 158, 11, 0.5)'
+                        : '1px solid rgba(16, 185, 129, 0.5)',
+                }}>
+                  {aiSummary.riskLevel || 'UNKNOWN'}
+                </span>
+              </div>
+            </div>
+
+            {/* Grid of 4 Entity Categories */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '16px',
+              marginBottom: '24px'
+            }}>
+              {/* Threat Actors */}
+              <div style={{
+                background: 'rgba(30, 41, 59, 0.5)',
+                borderRadius: '8px',
+                padding: '14px',
+                border: '1px solid #334155'
+              }}>
+                <div style={{ fontSize: '0.75rem', color: '#f87171', fontWeight: 700, fontFamily: 'var(--font-mono)', marginBottom: '8px' }}>
+                  ☠️ THREAT ACTORS ({aiSummary.threatActors?.length || 0})
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {aiSummary.threatActors && aiSummary.threatActors.length > 0 ? (
+                    aiSummary.threatActors.map((actor, i) => (
+                      <span key={i} className="badge-threat-actor" style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                        {actor}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ color: '#64748b', fontSize: '0.8rem' }}>None identified</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Malware */}
+              <div style={{
+                background: 'rgba(30, 41, 59, 0.5)',
+                borderRadius: '8px',
+                padding: '14px',
+                border: '1px solid #334155'
+              }}>
+                <div style={{ fontSize: '0.75rem', color: '#fb923c', fontWeight: 700, fontFamily: 'var(--font-mono)', marginBottom: '8px' }}>
+                  🦠 MALWARE ({aiSummary.malware?.length || 0})
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {aiSummary.malware && aiSummary.malware.length > 0 ? (
+                    aiSummary.malware.map((m, i) => (
+                      <span key={i} className="badge-malware" style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                        {m}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ color: '#64748b', fontSize: '0.8rem' }}>None identified</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Vulnerabilities */}
+              <div style={{
+                background: 'rgba(30, 41, 59, 0.5)',
+                borderRadius: '8px',
+                padding: '14px',
+                border: '1px solid #334155'
+              }}>
+                <div style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 700, fontFamily: 'var(--font-mono)', marginBottom: '8px' }}>
+                  🛡️ VULNERABILITIES ({aiSummary.vulnerabilities?.length || 0})
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {aiSummary.vulnerabilities && aiSummary.vulnerabilities.length > 0 ? (
+                    aiSummary.vulnerabilities.map((v, i) => (
+                      <span key={i} className="badge-cve" style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                        {v}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ color: '#64748b', fontSize: '0.8rem' }}>None identified</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Target Countries */}
+              <div style={{
+                background: 'rgba(30, 41, 59, 0.5)',
+                borderRadius: '8px',
+                padding: '14px',
+                border: '1px solid #334155'
+              }}>
+                <div style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 700, fontFamily: 'var(--font-mono)', marginBottom: '8px' }}>
+                  🌐 TARGET COUNTRIES ({aiSummary.countries?.length || 0})
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {aiSummary.countries && aiSummary.countries.length > 0 ? (
+                    aiSummary.countries.map((c, i) => (
+                      <span key={i} className="badge-country" style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                        {c}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ color: '#64748b', fontSize: '0.8rem' }}>None identified</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Executive Summary */}
+            <div style={{
+              background: 'rgba(15, 23, 42, 0.6)',
+              borderRadius: '8px',
+              padding: '18px 20px',
+              borderLeft: '3px solid #a855f7',
+              borderTop: '1px solid #1e293b',
+              borderRight: '1px solid #1e293b',
+              borderBottom: '1px solid #1e293b'
+            }}>
+              <div style={{
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                color: '#e2e8f0',
+                marginBottom: '8px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Executive Summary
+              </div>
+              <p style={{
+                fontSize: '0.95rem',
+                lineHeight: '1.65',
+                color: '#cbd5e1',
+                whiteSpace: 'pre-line'
+              }}>
+                {aiSummary.summary || 'No summary text returned.'}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
