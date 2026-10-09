@@ -228,11 +228,13 @@ export default function KnowledgeGraph() {
         const sourceId = rel.source?.id || rel.source?._id || rel.source;
         const targetId = rel.target?.id || rel.target?._id || rel.target;
 
-        const relName = rel.relation || 'relates_to';
-        let edgeColor = '#06b6d4'; // cyan default
-        if (relName === 'exploits') edgeColor = '#ef4444'; // red for exploit
-        if (relName === 'uses') edgeColor = '#f97316';     // orange for malware use
-        if (relName === 'targets') edgeColor = '#10b981';  // green for country target
+        const relName = rel.relation || 'related_to';
+        let edgeColor = '#a78bfa'; // purple default for related_to
+        if (relName === 'exploits') edgeColor = '#ef4444';  // red for exploit
+        if (relName === 'uses') edgeColor = '#f97316';      // orange for malware use
+        if (relName === 'targets') edgeColor = '#10b981';   // green for country target
+        if (relName === 'delivers') edgeColor = '#f59e0b';  // amber for delivers
+        if (relName === 'related_to') edgeColor = '#a78bfa'; // purple for related_to
 
         return {
           id: rel.id || rel._id || `edge-${index}-${sourceId}-${targetId}`,
@@ -300,10 +302,10 @@ export default function KnowledgeGraph() {
     setLoading(true);
     setError('');
     try {
-      setStatusMsg('Extracting CVEs, threat actors, malware & target countries...');
+      setStatusMsg('AI extracting CVEs, threat actors, malware & target countries...');
       await api.post(`/entities/extract/${activeDocId}`);
 
-      setStatusMsg('Correlating entities and generating knowledge relationships...');
+      setStatusMsg('AI correlating entities and generating knowledge graph relationships...');
       await api.post(`/relationships/generate/${activeDocId}`);
 
       setStatusMsg('Graph updated successfully!');
@@ -432,7 +434,7 @@ export default function KnowledgeGraph() {
           <div style={{ height: '18px', width: '1px', background: '#334155' }} />
 
           {/* Color Legend */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.75rem', flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f87171' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} />
               Threat Actor
@@ -448,6 +450,18 @@ export default function KnowledgeGraph() {
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#34d399' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
               Country
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#fbbf24', fontSize: '0.7rem', borderLeft: '1px solid #334155', paddingLeft: '6px' }}>
+              <span style={{ width: '16px', height: '2px', background: '#ef4444', borderRadius: '1px' }} /> exploits
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#94a3b8', fontSize: '0.7rem' }}>
+              <span style={{ width: '16px', height: '2px', background: '#f97316', borderRadius: '1px' }} /> uses
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#94a3b8', fontSize: '0.7rem' }}>
+              <span style={{ width: '16px', height: '2px', background: '#10b981', borderRadius: '1px' }} /> targets
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#94a3b8', fontSize: '0.7rem' }}>
+              <span style={{ width: '16px', height: '2px', background: '#a78bfa', borderRadius: '1px' }} /> related_to
             </span>
           </div>
 
