@@ -7,6 +7,7 @@ const documentRoutes = require('./routes/documentRoutes');
 const entityRoutes = require('./routes/entityRoutes');
 const relationshipRoutes = require('./routes/relationshipRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -30,6 +31,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/entities', entityRoutes);
 app.use('/api/relationships', relationshipRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/chat', chatRoutes);
 
 const PORT = process.env.PORT || 5000;
 

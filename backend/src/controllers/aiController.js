@@ -1,5 +1,5 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Document = require('../models/Document');
+const { generateContentWithRetry, getKeyCount } = require('../utils/geminiKeyManager');
 
 /**
  * @desc    Generate AI threat intelligence summary from document
@@ -26,19 +26,14 @@ const generateSummary = async (req, res) => {
       return res.status(400).json({ message: 'Document has no extracted text to analyze' });
     }
 
-    // 3. Verify GEMINI_API_KEY
-    const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : null;
-    if (!apiKey) {
+    // 3. Verify GEMINI_API_KEY pool
+    if (getKeyCount() === 0) {
       return res.status(500).json({
-        message: 'GEMINI_API_KEY is not configured in backend environment variables',
+        message: 'GEMINI_API_KEY_1 through GEMINI_API_KEY_5 are not configured in backend environment variables',
       });
     }
 
-    // 4. Initialize Gemini client
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
-
-    // 5. Construct prompt as specified
+    // 4. Construct prompt as specified
     const prompt = `You are a cybersecurity threat intelligence analyst.
 Analyze the following threat report and return:
 1. Risk Level (LOW/MEDIUM/HIGH)
@@ -61,11 +56,13 @@ Return ONLY a JSON object strictly following this structure:
 Threat Report:
 ${extractedText}`;
 
-    // 6. Generate content from Gemini
-    const result = await model.generateContent(prompt);
+    // 5. Generate content with round-robin key pool and bounded retries
+    const result = await generateContentWithRetry(prompt, {
+      modelName: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+    });
     const responseText = result.response.text();
 
-    // 7. Parse and return JSON response
+    // 6. Parse and return JSON response
     let parsedData;
     try {
       // Remove any markdown code fences if returned
@@ -92,7 +89,7 @@ ${extractedText}`;
       summary: parsedData.summary || '',
     });
   } catch (error) {
-    console.error('AI summary generation error:', error);
+    console.error('AI summary generation error:', error.message || error);
     return res.status(500).json({
       message: 'Error generating AI summary: ' + (error.message || 'Internal server error'),
     });

@@ -11,6 +11,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import Navbar from '../components/Navbar';
+import FloatingChatbot from '../components/FloatingChatbot';
 import api from '../services/api';
 
 // Hardcoded documentId variable as required by project specification
@@ -825,6 +826,12 @@ export default function KnowledgeGraph() {
           </div>
         )}
       </div>
+
+      {/* Floating AI Threat Intelligence Chatbot */}
+      <FloatingChatbot
+        documentId={activeDocId}
+        documentTitle={documents.find((d) => d._id === activeDocId)?.title}
+      />
     </div>
   );
 }
