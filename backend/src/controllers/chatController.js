@@ -1,5 +1,5 @@
 const Document = require('../models/Document');
-const { generateContentWithRetry, getKeyCount } = require('../utils/geminiKeyManager');
+const { generateContent, getKeyStats } = require('../utils/aiProvider');
 
 /**
  * @desc    Chat with AI Threat Intelligence Assistant regarding a document
@@ -25,10 +25,11 @@ const chatWithDocument = async (req, res) => {
       return res.status(404).json({ message: 'Document not found' });
     }
 
-    // 2. Check if API keys are available
-    if (getKeyCount() === 0) {
+    // 2. Check if any AI provider is available
+    const { gemini, groq } = getKeyStats();
+    if (gemini === 0 && groq === 0) {
       return res.status(500).json({
-        message: 'No valid Gemini API keys configured on backend',
+        message: 'No valid AI API keys configured on backend',
       });
     }
 
@@ -67,12 +68,8 @@ ${userMessage}
 3. If the answer is not mentioned in the report, explicitly clarify that, then provide general cybersecurity guidance if helpful.
 4. Keep answers concise, actionable, and formatted using clean bullet points where appropriate.`;
 
-    // 5. Execute with Gemini Key Pool & bounded retries
-    const result = await generateContentWithRetry(fullPrompt, {
-      modelName: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
-    });
-
-    const reply = result.response.text();
+    // 5. Execute with unified AI provider (Gemini primary, Groq fallback)
+    const reply = await generateContent(fullPrompt);
 
     return res.status(200).json({
       reply,
