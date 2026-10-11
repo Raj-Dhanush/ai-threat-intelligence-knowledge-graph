@@ -14,9 +14,6 @@ import Navbar from '../components/Navbar';
 import FloatingChatbot from '../components/FloatingChatbot';
 import api from '../services/api';
 
-// Hardcoded documentId variable as required by project specification
-const HARDCODED_DOCUMENT_ID = '6a9d0c13285653a498ac590e';
-
 // Entity Styling configurations
 const ENTITY_CONFIGS = {
   ThreatActor: {
@@ -50,6 +47,46 @@ const ENTITY_CONFIGS = {
     glow: 'rgba(16, 185, 129, 0.3)',
     icon: '🌐',
     label: 'COUNTRY / TARGET',
+  },
+  Organization: {
+    color: '#22c55e',
+    bg: 'rgba(34, 197, 94, 0.12)',
+    border: 'rgba(34, 197, 94, 0.4)',
+    glow: 'rgba(34, 197, 94, 0.3)',
+    icon: 'ORG',
+    label: 'ORGANIZATION',
+  },
+  Product: {
+    color: '#eab308',
+    bg: 'rgba(234, 179, 8, 0.12)',
+    border: 'rgba(234, 179, 8, 0.4)',
+    glow: 'rgba(234, 179, 8, 0.3)',
+    icon: 'PRD',
+    label: 'PRODUCT',
+  },
+  IOC: {
+    color: '#ec4899',
+    bg: 'rgba(236, 72, 153, 0.12)',
+    border: 'rgba(236, 72, 153, 0.4)',
+    glow: 'rgba(236, 72, 153, 0.3)',
+    icon: 'IOC',
+    label: 'IOC',
+  },
+  Technique: {
+    color: '#8b5cf6',
+    bg: 'rgba(139, 92, 246, 0.12)',
+    border: 'rgba(139, 92, 246, 0.4)',
+    glow: 'rgba(139, 92, 246, 0.3)',
+    icon: 'TTP',
+    label: 'TECHNIQUE',
+  },
+  Campaign: {
+    color: '#14b8a6',
+    bg: 'rgba(20, 184, 166, 0.12)',
+    border: 'rgba(20, 184, 166, 0.4)',
+    glow: 'rgba(20, 184, 166, 0.3)',
+    icon: 'CMP',
+    label: 'CAMPAIGN',
   },
 };
 
@@ -114,9 +151,8 @@ function CyberNode({ data }) {
 }
 
 export default function KnowledgeGraph() {
-  // Use saved documentId or fall back to HARDCODED_DOCUMENT_ID
   const [activeDocId, setActiveDocId] = useState(() => {
-    return localStorage.getItem('selectedDocumentId') || HARDCODED_DOCUMENT_ID;
+    return localStorage.getItem('selectedDocumentId') || '';
   });
 
   const [documents, setDocuments] = useState([]);
@@ -126,6 +162,7 @@ export default function KnowledgeGraph() {
   const [statusMsg, setStatusMsg] = useState('');
   const [error, setError] = useState('');
   const [stats, setStats] = useState({ entityCount: 0, relCount: 0 });
+  const [selectedEdge, setSelectedEdge] = useState(null);
 
   // AI Summary States
   const [aiSummary, setAiSummary] = useState(null);
@@ -143,6 +180,7 @@ export default function KnowledgeGraph() {
         // If current activeDocId isn't set, default to first document if available
         if (docs.length > 0 && !localStorage.getItem('selectedDocumentId')) {
           setActiveDocId(docs[0]._id);
+          localStorage.setItem('selectedDocumentId', docs[0]._id);
         }
       })
       .catch((e) => console.warn('Could not fetch doc list:', e.message));
@@ -150,25 +188,37 @@ export default function KnowledgeGraph() {
 
   // Layout algorithm: Organize entities cleanly by type column
   const calculateLayout = (entities) => {
-    const columns = {
-      ThreatActor: [],
-      Malware: [],
-      CVE: [],
-      Country: [],
-      Other: [],
-    };
+    const preferredOrder = [
+      'ThreatActor',
+      'Campaign',
+      'Technique',
+      'Malware',
+      'Tool',
+      'Infrastructure',
+      'IOC',
+      'CVE',
+      'Vulnerability',
+      'Product',
+      'Organization',
+      'Industry',
+      'Country',
+      'Other',
+    ];
+
+    const columns = {};
 
     entities.forEach((e) => {
-      if (columns[e.type]) {
-        columns[e.type].push(e);
-      } else {
-        columns.Other.push(e);
-      }
+      const key = e.type || 'Other';
+      if (!columns[key]) columns[key] = [];
+      columns[key].push(e);
     });
 
-    const activeCols = ['ThreatActor', 'Malware', 'CVE', 'Country', 'Other'].filter(
-      (k) => columns[k].length > 0
-    );
+    const activeCols = [
+      ...preferredOrder.filter((k) => columns[k]?.length > 0),
+      ...Object.keys(columns)
+        .filter((k) => !preferredOrder.includes(k))
+        .sort(),
+    ];
 
     const generatedNodes = [];
     const colSpacing = 300;
@@ -190,6 +240,8 @@ export default function KnowledgeGraph() {
             name: item.name,
             type: item.type,
             label: item.name,
+            aliases: item.aliases || [],
+            evidence: item.evidence || [],
           },
         });
       });
@@ -203,6 +255,7 @@ export default function KnowledgeGraph() {
     if (!docId) return;
     setLoading(true);
     setError('');
+    setSelectedEdge(null);
     setStatusMsg('Loading threat intelligence knowledge graph...');
 
     try {
@@ -260,6 +313,12 @@ export default function KnowledgeGraph() {
           },
           labelBgPadding: [6, 4],
           labelBgBorderRadius: 4,
+          data: {
+            evidence: rel.evidence,
+            confidence: rel.confidence,
+            sourceName: rel.source?.name,
+            targetName: rel.target?.name,
+          },
           markerEnd: {
             type: MarkerType.ArrowClosed,
             color: edgeColor,
@@ -302,7 +361,7 @@ export default function KnowledgeGraph() {
     setLoading(true);
     setError('');
     try {
-      setStatusMsg('AI extracting CVEs, threat actors, malware & target countries...');
+      setStatusMsg('AI extracting context-aware entities from the full report...');
       await api.post(`/entities/extract/${activeDocId}`);
 
       setStatusMsg('AI correlating entities and generating knowledge graph relationships...');
@@ -385,9 +444,6 @@ export default function KnowledgeGraph() {
                   {d.title} ({d._id.slice(-6)})
                 </option>
               ))}
-              <option value={HARDCODED_DOCUMENT_ID}>
-                Hardcoded Default ({HARDCODED_DOCUMENT_ID.slice(-6)})
-              </option>
             </select>
           ) : (
             <input
@@ -563,6 +619,7 @@ export default function KnowledgeGraph() {
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
+          onEdgeClick={(_, edge) => setSelectedEdge(edge)}
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{ padding: 0.25 }}
@@ -593,6 +650,40 @@ export default function KnowledgeGraph() {
             }}
           />
         </ReactFlow>
+
+        {selectedEdge?.data?.evidence && (
+          <div style={{
+            position: 'absolute',
+            right: 16,
+            bottom: 16,
+            zIndex: 20,
+            maxWidth: '420px',
+            background: 'rgba(15, 23, 42, 0.96)',
+            border: '1px solid #334155',
+            borderRadius: '8px',
+            padding: '14px 16px',
+            color: '#cbd5e1',
+            boxShadow: '0 10px 28px rgba(0, 0, 0, 0.35)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
+              <strong style={{ color: '#f8fafc', fontSize: '0.85rem' }}>
+                {selectedEdge.data.sourceName} {selectedEdge.label?.toLowerCase()} {selectedEdge.data.targetName}
+              </strong>
+              <button
+                onClick={() => setSelectedEdge(null)}
+                style={{ background: 'none', color: '#94a3b8', fontWeight: 700 }}
+              >
+                x
+              </button>
+            </div>
+            <div style={{ color: '#94a3b8', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
+              Evidence {selectedEdge.data.confidence ? `- ${selectedEdge.data.confidence}` : ''}
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.5 }}>
+              "{selectedEdge.data.evidence}"
+            </p>
+          </div>
+        )}
       </div>
 
       {/* AI Summary Section Below Graph */}
